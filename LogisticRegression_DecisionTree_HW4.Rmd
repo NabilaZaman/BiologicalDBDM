@@ -1,0 +1,539 @@
+---
+title: "Homework 4"
+output:
+  html_document:
+    df_print: paged
+---
+
+Part 1: Wisconsin Breast Cancer Dataset
+
+The file is provided in as a csv file called data.csv. Read it in and call it cancer_data.
+The four features we are interested in are radius_mean, texture_mean, smoothness_mean, compactness_mean.
+
+```{r}
+read.csv("data.csv", header=T, row.names=1)->cancer_data # reading the file and calling it cancer_data.
+```
+```{r}
+head(cancer_data)
+```
+
+```{r}
+#cancer_data$diagnosis
+#cancer_data$radius_mean
+#cancer_data$texture_mean
+#cancer_data$smoothness_mean 
+#cancer_data$compactness_mean
+cancer_data[c("diagnosis","radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")] -> cancer_df
+head(cancer_df)
+```
+
+1. Create a boxplot for each variable to visualize the distribution of the values between malignant and benign samples. Which of the four variables will be most accurate in predicting by itself ? Explain why. (Hint – try creating boxplots)
+
+```{r}
+library(ggplot2) # using the library ggplot for creating box plot
+# box plot for radius_mean
+box_plot <- ggplot(cancer_df, aes(x = diagnosis, y = radius_mean, color = diagnosis))
+box_plot +
+    geom_boxplot()
+```
+```{r}
+# box plot for texture_mean
+box_plot <- ggplot(cancer_df, aes(y = texture_mean, x = diagnosis, color = diagnosis))
+box_plot +
+    geom_boxplot()
+```
+```{r}
+# box plot for smoothness_mean
+box_plot <- ggplot(cancer_df, aes(y = smoothness_mean, x = diagnosis, color = diagnosis))
+box_plot +
+    geom_boxplot()
+```
+```{r}
+# box plot for compactness_mean
+box_plot <- ggplot(cancer_df, aes(y = compactness_mean, x = diagnosis, color = diagnosis))
+box_plot +
+    geom_boxplot()
+```
+ANSWER: The variable radius_mean will be most accurate in predicting the disease by itself because any value below 15 means benign and any value above 15 means Malignant, ignoring a few extreme values.There are no overlapping values. Moreover, the median in  radius_mean is centrally placed, which means that their is a very little chance of having extreme values. 
+
+2. Randomly remove 20% of our data and save it as test_set and the other 80% as training_set.
+a. Make sure your test_set and training_set datasets will have the same proportion of Benign and Malignant.
+
+```{r}
+table(cancer_df$diagnosis)
+```
+```{r}
+# Balancing the dataset to make sure your test_set and training_set datasets will have the same proportion of Benign and Malignant.
+
+Benign<-cancer_df[which(cancer_df[,"diagnosis"] == "B"),]
+Malignant<-cancer_df[which(cancer_df[,"diagnosis"] == "M"),] 
+sample(1:nrow(Benign), nrow(Malignant))->rand.0
+Benign[rand.0,]->BT
+Malignant->MT
+```
+```{r}
+table(BT[, "diagnosis"])
+```
+```{r}
+table(MT[, "diagnosis"])
+```
+```{r}
+# Splitting the data into training and test set
+set.seed(900)
+training.split<-rbind(BT, MT) 
+split<-sample(nrow(training.split), floor(nrow(training.split) * 0.8)) # Storing 80% data as training set
+split.train<-training.split[split,]
+split.test<-training.split[-split,]
+```
+```{r}
+table(split.train[, "diagnosis"])
+```
+
+
+3. Using the training_set, create a logistic regression model using the glm() function described in our lecture to create a model for each variable separately.
+a. Calculate accuracy, recall, and true negative rate using the test_set to determine which of the four variables is the most helpful predictor.
+
+```{r}
+# Radius Mean
+lr.split.RadiusMean<-glm(formula = diagnosis ~ radius_mean, 
+              family="binomial", 
+              data=split.train)
+
+pr.split.RadiusMean<-predict(lr.split.RadiusMean, newdata=split.test, type="response")
+pr.perf.RadiusMean = pr.split.RadiusMean
+pr.perf.RadiusMean[pr.split.RadiusMean>0.5] = "M"
+pr.perf.RadiusMean[pr.split.RadiusMean<=0.5]= "B" 
+confmat.RadiusMean<-table(split.test[,"diagnosis"], pr.perf.RadiusMean, dnn=c("actual", "predicted"))
+confmat.RadiusMean
+```
+```{r}
+# Calculating accuracy for Radius Mean
+TP.RadiusMean=confmat.RadiusMean["M","M"]
+TN.RadiusMean=confmat.RadiusMean["B","B"]
+FP.RadiusMean=confmat.RadiusMean["B","M"]
+FN.RadiusMean=confmat.RadiusMean["M","B"]
+
+accuracy.RadiusMean = (TP.RadiusMean+TN.RadiusMean)/(TP.RadiusMean+TN.RadiusMean+FP.RadiusMean+FN.RadiusMean)
+accuracy.RadiusMean
+```
+```{r}
+# Calculating recall for Radius Mean
+recall.RadiusMean = TP.RadiusMean/(TP.RadiusMean+FN.RadiusMean)
+recall.RadiusMean
+```
+```{r}
+# Calculating the true negative rate for Radius Mean
+TNR.RadiusMean = TN.RadiusMean/(TN.RadiusMean+FP.RadiusMean)
+TNR.RadiusMean
+```
+```{r}
+# Texture Mean
+lr.split.TextureMean<-glm(formula = diagnosis ~ texture_mean, 
+              family="binomial", 
+              data=split.train)
+
+pr.split.TextureMean<-predict(lr.split.TextureMean, newdata=split.test, type="response")
+pr.perf.TextureMean = pr.split.TextureMean
+pr.perf.TextureMean[pr.split.TextureMean>0.5] = "M"
+pr.perf.TextureMean[pr.split.TextureMean<=0.5]= "B" 
+confmat.TextureMean<-table(split.test[,"diagnosis"], pr.perf.TextureMean, dnn=c("actual", "predicted"))
+confmat.TextureMean
+```
+```{r}
+# Calculating accuracy for Texture Mean
+TP.TextureMean=confmat.TextureMean["M","M"]
+TN.TextureMean=confmat.TextureMean["B","B"]
+FP.TextureMean=confmat.TextureMean["B","M"]
+FN.TextureMean=confmat.TextureMean["M","B"]
+
+accuracy.TextureMean = (TP.TextureMean+TN.TextureMean)/(TP.TextureMean+TN.TextureMean+FP.TextureMean+FN.TextureMean)
+accuracy.TextureMean
+```
+```{r}
+# Calculating recall for Texture Mean
+recall.TextureMean = TP.TextureMean/(TP.TextureMean+FN.TextureMean)
+recall.TextureMean
+```
+```{r}
+# Calculating the true negative rate for Texture Mean
+TNR.TextureMean = TN.TextureMean/(TN.TextureMean+FP.TextureMean)
+TNR.TextureMean
+```
+```{r}
+# Smoothness Mean
+lr.split.SmoothnessMean<-glm(formula = diagnosis ~ smoothness_mean, 
+              family="binomial", 
+              data=split.train)
+
+pr.split.SmoothnessMean<-predict(lr.split.SmoothnessMean, newdata=split.test, type="response")
+pr.perf.SmoothnessMean = pr.split.SmoothnessMean
+pr.perf.SmoothnessMean[pr.split.SmoothnessMean>0.5] = "M"
+pr.perf.SmoothnessMean[pr.split.SmoothnessMean<=0.5]= "B" 
+confmat.SmoothnessMean<-table(split.test[,"diagnosis"], pr.perf.SmoothnessMean, dnn=c("actual", "predicted"))
+confmat.SmoothnessMean
+```
+```{r}
+# Calculating accuracy for Smoothness Mean
+TP.SmoothnessMean = confmat.SmoothnessMean["M","M"]
+TN.SmoothnessMean = confmat.SmoothnessMean["B","B"]
+FP.SmoothnessMean = confmat.SmoothnessMean["B","M"]
+FN.SmoothnessMean = confmat.SmoothnessMean["M","B"]
+
+accuracy.SmoothnessMean = (TP.SmoothnessMean+TN.SmoothnessMean)/(TP.SmoothnessMean+TN.SmoothnessMean+FP.SmoothnessMean+FN.SmoothnessMean)
+accuracy.SmoothnessMean
+```
+```{r}
+# Calculating recall for Smoothness Mean
+recall.SmoothnessMean = TP.SmoothnessMean/(TP.SmoothnessMean+FN.SmoothnessMean)
+recall.SmoothnessMean
+```
+```{r}
+# Calculating the true negative rate for Smoothness Mean
+TNR.SmoothnessMean = TN.SmoothnessMean/(TN.SmoothnessMean+FP.SmoothnessMean)
+TNR.SmoothnessMean
+```
+
+```{r}
+# Compactness Mean
+lr.split.CompactnessMean<-glm(formula = diagnosis ~ compactness_mean, 
+              family="binomial", 
+              data=split.train)
+
+pr.split.CompactnessMean<-predict(lr.split.CompactnessMean, newdata=split.test, type="response")
+pr.perf.CompactnessMean = pr.split.CompactnessMean
+pr.perf.CompactnessMean[pr.split.CompactnessMean>0.5] = "M"
+pr.perf.CompactnessMean[pr.split.CompactnessMean<=0.5]= "B" 
+confmat.CompactnessMean<-table(split.test[,"diagnosis"], pr.perf.CompactnessMean, dnn=c("actual", "predicted"))
+confmat.CompactnessMean
+```
+```{r}
+# Calculating accuracy for Compactness Mean
+TP.CompactnessMean = confmat.CompactnessMean["M","M"]
+TN.CompactnessMean=confmat.CompactnessMean["B","B"]
+FP.CompactnessMean=confmat.CompactnessMean["B","M"]
+FN.CompactnessMean=confmat.CompactnessMean["M","B"]
+
+accuracy.CompactnessMean = (TP.CompactnessMean+TN.CompactnessMean)/(TP.CompactnessMean+TN.CompactnessMean+FP.CompactnessMean+FN.CompactnessMean)
+accuracy.CompactnessMean
+```
+```{r}
+# Calculating recall for Compactness Mean
+recall.CompactnessMean = TP.CompactnessMean/(TP.CompactnessMean + FN.CompactnessMean)
+recall.CompactnessMean
+```
+```{r}
+# Calculating the true negative rate for Compactness Mean
+TNR.CompactnessMean = TN.CompactnessMean/(TN.CompactnessMean + FP.CompactnessMean)
+TNR.CompactnessMean
+```
+ANSWER: On the basis of the accuracy, recall and True negative rate for each individual variable it can be seen that the variable "radius_mean" has the highest accuracy = 0.89, recall = 0.91 and TNR = 0.88 amongst all the other variables. This implies that the radius mean is the most helpful predictor by itself.
+
+4. Repeat step 3 but this time with all the variables together. Does this improve the performance ? What conclusions can you draw from the coefficients?
+
+```{r}
+# With all the variables together
+lr.split.combined<-glm(formula = diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+              family="binomial",
+              data=split.train)
+pr.split.combined<-predict(lr.split.combined, newdata=split.test, type="response")
+pr.perf.combined = pr.split.combined 
+pr.perf.combined[pr.split.combined>0.5]="M"
+pr.perf.combined[pr.split.combined<=0.5]="B" 
+confmat.combined<-table(split.test[,"diagnosis"], 
+               pr.perf.combined, 
+               dnn=c("actual", "predicted")) 
+confmat.combined
+```
+```{r}
+# Calculating accuracy for the combined data
+TP.combined=confmat.combined["M","M"]
+TN.combined=confmat.combined["B","B"]
+FP.combined=confmat.combined["B","M"]
+FN.combined=confmat.combined["M","B"]
+
+accuracy.combined = (TP.combined+TN.combined)/(TP.combined+TN.combined+FP.combined+FN.combined)
+accuracy.combined
+```
+```{r}
+# Calculating recall for the combined data
+recall.combined = TP.combined/(TP.combined+FN.combined)
+recall.combined
+```
+```{r}
+# Calculating true negative rate for the combined data
+TNR.combined = TN.combined/(TN.combined+FP.combined)
+TNR.combined
+```
+ANSWER: On the basis of the accuracy, recall and True negative rate of the combined data it can be seen that accuracy = 0.96, recall = 1.0 and TNR = 0.93. Yes, combining the variables improves the performance. It can be said that combining the variables reduces the False positive Rate, hence improving the values of accuracy, recall and TNR.
+
+Part 2: Using a decision tree.
+
+5. Which variable do you expect to be at the root of the decision tree? Explain your answer and use a graph to support your answer.
+
+ANSWER: Root Node represents the entire population or sample and further gets divided into two or more sets. In this case, the variable radius_mean represents the entire population and can easily divide into 2 major groups representing benign and malignant cancer
+```{r}
+library("party")
+```
+```{r}
+Cancer.fit<-ctree(formula = diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                  data=cancer_df)
+```
+```{r}
+results = predict(Cancer.fit)
+table(cancer_df$diagnosis, results)
+```
+```{r}
+plot(Cancer.fit)
+```
+```{r}
+library(AUC)
+resultsr = predict(Cancer.fit, type="response")
+resultsp = predict(Cancer.fit, type="prob")
+resultsp.df = t(as.data.frame(resultsp))
+
+roc_result = roc(resultsp.df[,2],cancer_df$diagnosis)
+plot(roc_result, main=paste("AUC = ", auc(roc_result), sep=" "))
+# An excellent model has AUC near to the 1 which means it has good measure of separability. The AUC value of 0.98 means that there is 98% chance that model will be able to distinguish between positive class and negative class.
+```
+
+
+6. Using the same training_set and test_set perform a decision tree using the “Party” package.
+
+```{r}
+library("party")
+```
+```{r}
+Cancer.fit_TrainSet<-ctree(formula = diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                  data=split.train)
+```
+```{r}
+results_TrainSet = predict(Cancer.fit_TrainSet)
+table(split.train$diagnosis, results_TrainSet)
+```
+```{r}
+plot(Cancer.fit_TrainSet)
+```
+```{r}
+library(AUC)
+results1r = predict(Cancer.fit_TrainSet,newdata = split.test, type="response")
+results1p = predict(Cancer.fit_TrainSet,newdata = split.test, type="prob")
+results1p.df = t(as.data.frame(results1p))
+
+roc_result1 = roc(results1p.df[,2],split.test$diagnosis)
+plot(roc_result1, main=paste("AUC = ", auc(roc_result1), sep=" "))
+```
+
+7. Change the max_depth parameter and calculate your accuracy, precision, and recall for each depth. At which point do you think you have the least amount of over-fitting?
+
+```{r}
+#Changing the max depth to 1
+Cancer.fit2<-ctree(formula = diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                   data = split.train,
+                   controls = ctree_control(maxdepth = 1))
+plot(Cancer.fit2)
+```
+```{r}
+Cancer.fit2_compare<-ctree(formula=diagnosis ~ radius_mean+texture_mean+smoothness_mean+compactness_mean, data=cancer_df,controls = ctree_control(maxdepth = 1))
+
+results2r= predict(Cancer.fit2,newdata=split.test,type="response")
+results2p = predict(Cancer.fit2, newdata=split.test,type="prob")
+results2p.df = t(as.data.frame(results2p))
+roc_result2 = roc(results2p.df[,2],split.test$diagnosis)
+plot(roc_result2, main=paste("AUC = ", auc(roc_result2), sep=" "))
+```
+```{r}
+results2r= predict(Cancer.fit2_compare,newdata=cancer_df,type="response")
+results2p = predict(Cancer.fit2_compare,newdata=cancer_df,type="prob")
+results2p.df = t(as.data.frame(results2p))
+roc_result2 = roc(results2p.df[,2],cancer_df$diagnosis)
+plot(roc_result2, main=paste("AUC = ", auc(roc_result2), sep=" "))
+```
+```{r}
+pr.split.Cancer.fit2<-predict(Cancer.fit2, newdata=split.test, type="response")
+pr.perf.Cancer.fit2 = pr.split.Cancer.fit2
+pr.perf.Cancer.fit2[pr.split.Cancer.fit2>0.5] = "M"
+pr.perf.Cancer.fit2[pr.split.Cancer.fit2<=0.5]= "B" 
+confmat.Cancer.fit2 <- table(split.test[,"diagnosis"], pr.perf.Cancer.fit2, dnn=c("actual", "predicted"))
+confmat.Cancer.fit2
+```
+```{r}
+# Calculating accuracy for max depth = 1
+TP.Cancer.fit2=confmat.Cancer.fit2["M","M"]
+TN.Cancer.fit2=confmat.Cancer.fit2["B","B"]
+FP.Cancer.fit2=confmat.Cancer.fit2["B","M"]
+FN.Cancer.fit2=confmat.Cancer.fit2["M","B"]
+
+accuracy.Cancer.fit2 = (TP.Cancer.fit2+TN.Cancer.fit2)/(TP.Cancer.fit2+TN.Cancer.fit2+FP.Cancer.fit2+FN.Cancer.fit2)
+accuracy.Cancer.fit2
+```
+```{r}
+# Calculating precision for max depth = 1
+precision.Cancer.fit2 = TP.Cancer.fit2/(TP.Cancer.fit2+FP.Cancer.fit2)
+precision.Cancer.fit2
+```
+
+```{r}
+# Calculating recall for max depth = 1
+recall.Cancer.fit2 = TP.Cancer.fit2/(TP.Cancer.fit2+FN.Cancer.fit2)
+recall.Cancer.fit2
+```
+
+```{r}
+#Changing the max depth to 2
+Cancer.fit3<-ctree(formula = diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                   data=split.train,
+                   controls = ctree_control(maxdepth = 2))
+plot(Cancer.fit3)
+```
+```{r}
+Cancer.fit3_compare<-ctree(formula=diagnosis ~ radius_mean+texture_mean+smoothness_mean+compactness_mean, data=cancer_df,controls = ctree_control(maxdepth = 2))
+
+results3r= predict(Cancer.fit3,newdata=split.test,type="response")
+results3p = predict(Cancer.fit3, newdata=split.test,type="prob")
+results3p.df = t(as.data.frame(results3p))
+roc_result3 = roc(results3p.df[,2],split.test$diagnosis)
+plot(roc_result3, main=paste("AUC = ", auc(roc_result2), sep=" "))
+```
+```{r}
+results3r= predict(Cancer.fit3_compare,newdata=cancer_df,type="response")
+results3p = predict(Cancer.fit3_compare,newdata=cancer_df,type="prob")
+results3p.df = t(as.data.frame(results3p))
+roc_result3 = roc(results3p.df[,2],cancer_df$diagnosis)
+plot(roc_result3, main=paste("AUC = ", auc(roc_result3), sep=" "))
+```
+```{r}
+pr.split.Cancer.fit3<-predict(Cancer.fit3, newdata=split.test, type="response")
+pr.perf.Cancer.fit3 = pr.split.Cancer.fit3
+pr.perf.Cancer.fit3[pr.split.Cancer.fit3>0.5] = "M"
+pr.perf.Cancer.fit3[pr.split.Cancer.fit3<=0.5]= "B" 
+confmat.Cancer.fit3<-table(split.test[,"diagnosis"], pr.perf.Cancer.fit3, dnn=c("actual", "predicted"))
+confmat.Cancer.fit3
+```
+```{r}
+# Calculating accuracy for max depth = 2
+TP.Cancer.fit3=confmat.Cancer.fit3["M","M"]
+TN.Cancer.fit3=confmat.Cancer.fit3["B","B"]
+FP.Cancer.fit3=confmat.Cancer.fit3["B","M"]
+FN.Cancer.fit3=confmat.Cancer.fit3["M","B"]
+
+accuracy.Cancer.fit3 = (TP.Cancer.fit3+TN.Cancer.fit3)/(TP.Cancer.fit3+TN.Cancer.fit3+FP.Cancer.fit3+FN.Cancer.fit3)
+accuracy.Cancer.fit3
+```
+```{r}
+# Calculating precision for max depth = 2
+precision.Cancer.fit3 = TP.Cancer.fit3/(TP.Cancer.fit3+FP.Cancer.fit3)
+precision.Cancer.fit3
+```
+```{r}
+# Calculating recall for max depth = 2
+recall.Cancer.fit3 = TP.Cancer.fit3/(TP.Cancer.fit3+FN.Cancer.fit3)
+recall.Cancer.fit3
+```
+```{r}
+#Changing the max depth to 3
+Cancer.fit4<-ctree(formula = diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                   data = split.train,
+                   controls = ctree_control(maxdepth = 3))
+plot(Cancer.fit4)
+```
+```{r}
+Cancer.fit4_compare<-ctree(formula=diagnosis ~ radius_mean+texture_mean+smoothness_mean+compactness_mean, data=cancer_df,controls = ctree_control(maxdepth = 3))
+
+results4r= predict(Cancer.fit4,newdata=split.test,type="response")
+results4p = predict(Cancer.fit4,newdata=split.test,type="prob")
+results4p.df = t(as.data.frame(results4p))
+roc_result4 = roc(results4p.df[,2],split.test$diagnosis)
+plot(roc_result4, main=paste("AUC = ", auc(roc_result2), sep=" "))
+```
+```{r}
+results4r= predict(Cancer.fit4_compare,newdata=cancer_df,type="response")
+results4p = predict(Cancer.fit4_compare,newdata=cancer_df,type="prob")
+results4p.df = t(as.data.frame(results4p))
+roc_result4 = roc(results4p.df[,2],cancer_df$diagnosis)
+plot(roc_result4, main=paste("AUC = ", auc(roc_result4), sep=" "))
+```
+
+```{r}
+pr.split.Cancer.fit4<-predict(Cancer.fit4, newdata=split.test, type="response")
+pr.perf.Cancer.fit4 = pr.split.Cancer.fit4
+pr.perf.Cancer.fit4[pr.split.Cancer.fit4>0.5] = "M"
+pr.perf.Cancer.fit4[pr.split.Cancer.fit4<=0.5]= "B" 
+confmat.Cancer.fit4 <- table(split.test[,"diagnosis"], pr.perf.Cancer.fit4, dnn=c("actual", "predicted"))
+confmat.Cancer.fit4
+```
+```{r}
+# Calculating accuracy for max depth = 3
+TP.Cancer.fit4=confmat.Cancer.fit4["M","M"]
+TN.Cancer.fit4=confmat.Cancer.fit4["B","B"]
+FP.Cancer.fit4=confmat.Cancer.fit4["B","M"]
+FN.Cancer.fit4=confmat.Cancer.fit4["M","B"]
+
+accuracy.Cancer.fit4 = (TP.Cancer.fit4+TN.Cancer.fit4)/(TP.Cancer.fit4+TN.Cancer.fit4+FP.Cancer.fit4+FN.Cancer.fit4)
+accuracy.Cancer.fit4
+```
+```{r}
+# Calculating precision for max depth = 3
+precision.Cancer.fit4 = TP.Cancer.fit4/(TP.Cancer.fit4+FP.Cancer.fit4)
+precision.Cancer.fit4
+```
+
+```{r}
+# Calculating recall for max depth = 3
+recall.Cancer.fit4 = TP.Cancer.fit4/(TP.Cancer.fit4+FN.Cancer.fit4)
+recall.Cancer.fit4
+```
+```{r}
+#Changing the max depth to 4
+Cancer.fit5<-ctree(formula = diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                   data=split.train,
+                   controls = ctree_control(maxdepth = 4))
+plot(Cancer.fit5)
+```
+```{r}
+Cancer.fit5_compare<-ctree(formula=diagnosis ~ radius_mean+texture_mean+smoothness_mean+compactness_mean, data=cancer_df,controls = ctree_control(maxdepth = 4))
+
+results5r= predict(Cancer.fit5,newdata=split.test,type="response")
+results5p = predict(Cancer.fit5,newdata=split.test,type="prob")
+results5p.df = t(as.data.frame(results5p))
+roc_result5 = roc(results5p.df[,2],split.test$diagnosis)
+plot(roc_result5, main=paste("AUC = ", auc(roc_result5), sep=" "))
+```
+```{r}
+results5r= predict(Cancer.fit5_compare,newdata=cancer_df,type="response")
+results5p = predict(Cancer.fit5_compare,newdata=cancer_df,type="prob")
+results5p.df = t(as.data.frame(results5p))
+roc_result5 = roc(results5p.df[,2],cancer_df$diagnosis)
+plot(roc_result5, main=paste("AUC = ", auc(roc_result5), sep=" "))
+```
+```{r}
+pr.split.Cancer.fit5<-predict(Cancer.fit5, newdata=split.test, type="response")
+pr.perf.Cancer.fit5 = pr.split.Cancer.fit5
+pr.perf.Cancer.fit5[pr.split.Cancer.fit5>0.5] = "M"
+pr.perf.Cancer.fit5[pr.split.Cancer.fit5<=0.5]= "B" 
+confmat.Cancer.fit5<-table(split.test[,"diagnosis"], pr.perf.Cancer.fit5, dnn=c("actual", "predicted"))
+confmat.Cancer.fit5
+```
+
+```{r}
+# Calculating accuracy for max depth = 4
+TP.Cancer.fit5=confmat.Cancer.fit5["M","M"]
+TN.Cancer.fit5=confmat.Cancer.fit5["B","B"]
+FP.Cancer.fit5=confmat.Cancer.fit5["B","M"]
+FN.Cancer.fit5=confmat.Cancer.fit5["M","B"]
+
+accuracy.Cancer.fit5 = (TP.Cancer.fit5+TN.Cancer.fit5)/(TP.Cancer.fit5+TN.Cancer.fit5+FP.Cancer.fit5+FN.Cancer.fit5)
+accuracy.Cancer.fit5
+```
+```{r}
+# Calculating precision for max depth = 4
+precision.Cancer.fit5 = TP.Cancer.fit5/(TP.Cancer.fit5+FP.Cancer.fit5)
+precision.Cancer.fit5
+```
+```{r}
+# Calculating recall for max depth = 4
+recall.Cancer.fit5 = TP.Cancer.fit5/(TP.Cancer.fit5+FN.Cancer.fit5)
+recall.Cancer.fit5
+```
+The least amount of overfitting  is when the max_depth parameter is set to 4 (because the AUC curve in split_test and original data is almost the same which is 0.92 and 0.96).
+Tree depth determines how flexible the model is. A deeper tree can fit more complicated functions. Therefore, increasing tree depth should increase performance on the training set. But, increased flexibility also gives greater ability to overfit the data, and generalization performance may suffer if depth is increased too far. 
+
