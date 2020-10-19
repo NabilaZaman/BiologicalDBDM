@@ -1,0 +1,470 @@
+---
+title: 'Wisconsin Cancer dataset: KNN & Random Forest'
+author: "Nabila Zaman"
+---
+
+The dataset for HW5 is the same as the midterm. The four features we are interested in are radius_mean, texture_mean, smoothness_mean, compactness_mean.	
+Remove 20% of your data and save it as test_set and the other 80% as training_set. 
+a.	Make sure your datasets will have the same ratio of Benign and Malignant.
+
+```{r}
+read.csv("data.csv", header=T, row.names=1)->cancer_data # reading the file and calling it cancer_data.
+head(cancer_data)
+```
+```{r}
+cancer_data[c("diagnosis","radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")] -> cancer_df
+head(cancer_df)
+```
+```{r}
+cancer_df$diagnosis = as.factor(cancer_df$diagnosis)
+```
+
+```{r}
+table(cancer_df$diagnosis)
+```
+```{r}
+# Balancing the dataset to make sure your test_set and training_set datasets will have the same proportion of Benign and Malignant.
+
+Benign<-cancer_df[which(cancer_df[,"diagnosis"] == "B"),]
+Malignant<-cancer_df[which(cancer_df[,"diagnosis"] == "M"),] 
+sample(1:nrow(Benign), nrow(Malignant))->rand.0
+Benign[rand.0,]->BT
+Malignant->MT
+```
+```{r}
+table(BT[, "diagnosis"])
+```
+```{r}
+table(MT[, "diagnosis"])
+```
+```{r}
+# Splitting the data into training and test set
+set.seed(900)
+training.split<-rbind(BT, MT) 
+split<-sample(nrow(training.split), floor(nrow(training.split) * 0.8)) # Storing 80% data as training set
+split.train<-training.split[split,]
+split.test<-training.split[-split,]
+```
+
+```{r}
+table(split.train[, "diagnosis"])
+```
+
+Part 1. KNN
+Use K-NN to classify the test_set based on the values from training_set.
+a.	Try different k values. Which gives the best result? 
+b.	Calculate the AUC of the best KNN model.
+ 
+NOTE:The larger the k, the more smooth the separation between them, where as the smaller the k, the tighter the boundaries making them more prone to over-fitting.
+
+```{r}
+library("class")
+
+# Building a KNN model with K = 1
+
+KNN.1 = knn(split.train[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], split.test[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], 
+               split.train$diagnosis, k=1)
+table(KNN.1, split.test$diagnosis)
+```
+```{r}
+# Building a KNN model with K = 5
+
+KNN.5 = knn(split.train[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], split.test[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], 
+               split.train$diagnosis, k=5)
+table(KNN.5, split.test$diagnosis)
+```
+```{r}
+# Building a KNN model with K = 10
+
+KNN.10 = knn(split.train[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], split.test[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], 
+               split.train$diagnosis, k=10)
+table(KNN.10, split.test$diagnosis)
+```
+
+```{r}
+# Building a KNN model with K = 18
+
+KNN.18 = knn(split.train[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], split.test[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], 
+               split.train$diagnosis, k=18)
+table(KNN.18, split.test$diagnosis)
+```
+
+```{r}
+# Building a KNN model with K = 50
+
+KNN.50 = knn(split.train[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], split.test[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], 
+               split.train$diagnosis, k=50)
+table(KNN.50, split.test$diagnosis)
+```
+```{r}
+# Building a KNN model with K = 100
+
+KNN.100 = knn(split.train[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], split.test[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], 
+               split.train$diagnosis, k=100)
+table(KNN.100, split.test$diagnosis)
+```
+```{r}
+# Building a KNN model with K = 339
+
+KNN.339 = knn(split.train[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], split.test[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")], 
+               split.train$diagnosis, k=339)
+table(KNN.339, split.test$diagnosis)
+```
+
+```{r}
+# Trying different k values to identify which  value gives the best result using a for loop
+
+data_KNN<-function(n){
+  out<-matrix(data=NA, nrow = 4, ncol = n)
+  rownames(out)<-c("Accuracy:","Precision:","Recall","TNR:")
+  for (i in 1:n){
+    data_knn <-  knn(split.train[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")],
+                     split.test[,c("radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")],
+                     split.train$diagnosis, k=i)
+  
+  # calculating accuracy
+  confmat <- table(data_knn, split.test$diagnosis)
+  TP = confmat["B","B"]
+  TN = confmat["M","M"]
+  FP = confmat["M","B"]
+  FN = confmat["B","M"]
+  
+  Accuracy_of_k = (TP+TN)/(TP+TN+FP+FN)
+  
+  # calculating precision
+  precision_of_k = (TP)/(TP+FP)
+  
+  # calculating recall
+  recall_of_k=(TP)/(TP+FN)
+  
+  # calculating TNR
+  TNR_of_k=(TN)/(TN+FP)
+  
+  out[,i]=c(Accuracy_of_k,precision_of_k,recall_of_k,TNR_of_k)
+  }
+  return(out)
+}
+```
+```{r}
+data_KNN(30) # to print the first 30 k values
+
+```
+# ANSWER:K = 19 gives the best performance
+
+b.	Calculate the AUC of the best KNN model.
+
+```{r}
+# To Calculate the AUC values of  KNN models
+library(AUC)
+data.knn.prob <- knn(split.train[,c("radius_mean","texture_mean","smoothness_mean","compactness_mean")],
+               split.test[,c("radius_mean","texture_mean","smoothness_mean","compactness_mean")],
+               split.train$diagnosis,k=19,prob=T)
+
+diagnosis_test=which(data.knn.prob==0)
+attr(data.knn.prob,"prob")[diagnosis_test]=1-attr(data.knn.prob,"prob")[diagnosis_test]
+data.knn.prob_roc<-roc(attr(data.knn.prob,"prob"),split.test$diagnosis)
+auc(data.knn.prob_roc)
+```
+
+```{r}
+# To Calculate the AUC values of  KNN models using a for loop
+KNN_AUC<-function(n){
+  out<-matrix(data=NA, nrow = 1, ncol = n)
+  rownames(out)<-c("AUC")
+  for (i in 1:n){
+  data.knn.prob<-knn(split.train[,c("radius_mean","texture_mean","smoothness_mean","compactness_mean")],
+                 split.test[,c("radius_mean","texture_mean","smoothness_mean","compactness_mean")],
+                 split.train$diagnosis,k=i,prob=T)
+
+  diagnosis_test=which(data.knn.prob==0)
+  attr(data.knn.prob,"prob")[diagnosis_test]=1-attr(data.knn.prob,"prob")[diagnosis_test]
+  data.knn.prob_roc<-roc(attr(data.knn.prob,"prob"),split.test$diagnosis)
+  out[,i]=auc(data.knn.prob_roc)
+  }
+  return(out)
+}
+```
+
+```{r}
+KNN_AUC(30) # to print the AUC values of first 30 k values
+```
+
+Part 2: Use ggplot to draw a scatter plot using the two different variables radius_mean and texture_mean from test_set. Color them based on what the points were predicted to be in knn analysis above using your optimal k.
+
+```{r}
+library(ggplot2)
+```
+```{r}
+#drawing a scatter plot using the two different variables radius_mean and texture_mean from test_set
+ScatterPlot <- ggplot(split.test)+geom_point(mapping = aes(x=radius_mean, y=texture_mean, color=factor(data.knn.prob), shape=factor(diagnosis)))
+ScatterPlot # to print the plot
+```
+
+
+#Part 3: Random Forest	
+#Build a Random Forest model using the training_set with the four different variables listed above. 
+#a.	Try using different values for m. Which m gives the best performance?
+
+#ANSWER: m = 2 gives the best performance
+```{r}
+library("randomForest")
+library("party")
+library("AUC")
+```
+```{r}
+# Building a Random Forest model using the training set 
+set.seed(700)
+datarf = randomForest(diagnosis ~ ., data=split.train, importance=T)
+datarf
+```
+```{r}
+# with mtry=1
+set.seed(75)
+rf1 = cforest(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                       data=split.train,
+                       controls=cforest_unbiased(ntree=100,mtry=1))
+rf1
+```
+```{r}
+rf1.results = predict(rf1,OOB=TRUE)
+
+# Calculating accuracy
+confmat.rf1 <- table(rf1.results, split.train$diagnosis)
+TP.rf1 = confmat.rf1["B","B"]
+TN.rf1 = confmat.rf1["M","M"]
+FP.rf1 = confmat.rf1["M","B"]
+FN.rf1 = confmat.rf1["B","M"]
+  
+Accuracy_of_rf1 = (TP.rf1+TN.rf1)/(TP.rf1+TN.rf1+FP.rf1+FN.rf1)
+Accuracy_of_rf1
+```
+```{r}
+# Calculating precision
+precision_of_rf1 = (TP.rf1)/(TP.rf1+FP.rf1)
+precision_of_rf1
+```
+```{r}
+# Calculating recall 
+recall_of_rf1=(TP.rf1)/(TP.rf1+FN.rf1)
+recall_of_rf1
+```
+```{r}
+# Calculating TNR
+TNR_of_rf1=(TN.rf1)/(TN.rf1+FP.rf1)
+TNR_of_rf1 
+```
+
+```{r}
+# To find the most important Variable
+varimp(rf1)
+```
+ 
+```{r}
+# using mtry=1 building a randomForest
+rf_1<-randomForest(diagnosis~.,data=split.train,importance=T,mtry=1)
+rf_1
+```
+
+
+```{r}
+# with mtry=2
+set.seed(70)
+rf2 = cforest(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                       data=split.train,
+                   controls=cforest_unbiased(ntree=100,mtry=2))
+rf2
+```
+```{r}
+rf2.results = predict(rf2,OOB=TRUE)
+
+# Calculating accuracy
+confmat.rf2 <- table(rf2.results, split.train$diagnosis)
+TP.rf2 = confmat.rf2["B","B"]
+TN.rf2 = confmat.rf2["M","M"]
+FP.rf2 = confmat.rf2["M","B"]
+FN.rf2 = confmat.rf2["B","M"]
+  
+Accuracy_of_rf2 = (TP.rf2+TN.rf2)/(TP.rf2+TN.rf2+FP.rf2+FN.rf2)
+Accuracy_of_rf2
+```
+```{r}
+# Calculating precision
+precision_of_rf2 = (TP.rf2)/(TP.rf2+FP.rf2)
+precision_of_rf2
+```
+```{r}
+# Calculating recall 
+recall_of_rf2=(TP.rf2)/(TP.rf2+FN.rf2)
+recall_of_rf2
+```
+```{r}
+# Calculating TNR
+TNR_of_rf2=(TN.rf2)/(TN.rf2+FP.rf2)
+TNR_of_rf2 
+```
+
+```{r}
+# To find the most important Variable
+varimp(rf2)
+```
+
+```{r}
+# using mtry=2 building a randomForest
+rf_2<-randomForest(diagnosis~.,data=split.train,importance=T,mtry=2)
+rf_2
+```
+```{r}
+# with mtry=3
+set.seed(700)
+rf3 = cforest(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                       data=split.train,
+                   controls=cforest_unbiased(ntree=100,mtry=3))
+rf3
+```
+```{r}
+rf3.results = predict(rf3,OOB=TRUE)
+
+# Calculating accuracy
+confmat.rf3 <- table(rf3.results, split.train$diagnosis)
+TP.rf3 = confmat.rf3["B","B"]
+TN.rf3 = confmat.rf3["M","M"]
+FP.rf3 = confmat.rf3["M","B"]
+FN.rf3 = confmat.rf3["B","M"]
+  
+Accuracy_of_rf3 = (TP.rf3+TN.rf3)/(TP.rf3+TN.rf3+FP.rf3+FN.rf3)
+Accuracy_of_rf3
+```
+```{r}
+# Calculating precision
+precision_of_rf3 = (TP.rf3)/(TP.rf3+FP.rf3)
+precision_of_rf3
+```
+```{r}
+# Calculating recall 
+recall_of_rf3=(TP.rf3)/(TP.rf3+FN.rf3)
+recall_of_rf3
+```
+```{r}
+# Calculating TNR
+TNR_of_rf3=(TN.rf3)/(TN.rf3+FP.rf3)
+TNR_of_rf3 
+```
+
+```{r}
+# To find the most important Variable
+varimp(rf3)
+```
+
+```{r}
+#using mtry=3 buildind a randomForest
+rf_3<-randomForest(diagnosis~.,data=split.train,importance=T,mtry=3)
+rf_3
+```
+```{r}
+# with mtry=4
+set.seed(7)
+rf4 = cforest(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                       data=split.train,
+                   controls=cforest_unbiased(ntree=100,mtry=4))
+rf4
+```
+```{r}
+rf4.results = predict(rf4,OOB=TRUE)
+
+# Calculating accuracy
+confmat.rf4 <- table(rf4.results, split.train$diagnosis)
+TP.rf4 = confmat.rf4["B","B"]
+TN.rf4 = confmat.rf4["M","M"]
+FP.rf4 = confmat.rf4["M","B"]
+FN.rf4 = confmat.rf4["B","M"]
+  
+Accuracy_of_rf4 = (TP.rf4+TN.rf4)/(TP.rf4+TN.rf4+FP.rf4+FN.rf4)
+Accuracy_of_rf4
+```
+```{r}
+# Calculating precision
+precision_of_rf4 = (TP.rf4)/(TP.rf4+FP.rf4)
+precision_of_rf4
+```
+```{r}
+# Calculating recall 
+recall_of_rf4=(TP.rf4)/(TP.rf4+FN.rf4)
+recall_of_rf4
+```
+```{r}
+# Calculating TNR
+TNR_of_rf4=(TN.rf4)/(TN.rf4+FP.rf4)
+TNR_of_rf4 
+```
+```{r}
+# To find the most important Variable
+varimp(rf4)
+```
+
+
+```{r}
+#using mtry=4 buildind a randomForest
+rf_4<-randomForest(diagnosis~.,data=split.train,importance=T,mtry=4)
+rf_4
+```
+
+#b.	Which is the most important variable? How do you know?
+Answer:Radius_mean is the most important variable. we can confirm this by plotting the following graph
+
+```{r}
+varImpPlot(datarf)
+```
+
+#c.	Use test_set to calculate the AUC of the best model created using the training_set.
+# ANSWER: mtry = 2 gives the best results
+```{r}
+# Calculating the AUC value with m = 1
+set.seed(100)
+rf1 <- cforest(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                       data=split.train,
+                   controls=cforest_unbiased(ntree=100,mtry=1))
+
+rf1.result = predict(rf1,newdata = split.test, OOB = T)
+t1 <- table(rf1.result,split.test$diagnosis)
+rf1.roc <- roc(rf1.result,split.test$diagnosis)
+auc(rf1.roc)
+```
+
+```{r}
+# Calculating the AUC value with m = 2
+set.seed(100)
+rf2 <- cforest(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                       data=split.train,
+                   controls=cforest_unbiased(ntree=100,mtry=2))
+
+rf2.result = predict(rf2,newdata = split.test, OOB = T)
+t2 <- table(rf2.result,split.test$diagnosis)
+rf2.roc <- roc(rf2.result,split.test$diagnosis)
+auc(rf2.roc)
+```
+```{r}
+# Calculating the AUC value with m = 3
+set.seed(100)
+rf3 <- cforest(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                       data=split.train,
+                   controls=cforest_unbiased(ntree=100,mtry=3))
+
+rf3.result = predict(rf3,newdata = split.test, OOB = T)
+t3 <- table(rf3.result,split.test$diagnosis)
+rf3.roc <- roc(rf3.result,split.test$diagnosis)
+auc(rf3.roc)
+```
+```{r}
+# Calculating the AUC value with m = 4
+set.seed(100)
+rf4 <- cforest(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+                       data=split.train,
+                   controls=cforest_unbiased(ntree=100,mtry=4))
+
+rf4.result = predict(rf4,newdata = split.test, OOB = T)
+t4 <- table(rf4.result,split.test$diagnosis)
+rf4.roc <- roc(rf4.result,split.test$diagnosis)
+auc(rf4.roc)
+```
+
+# ANSWER: mtry = 2 gives the best results
