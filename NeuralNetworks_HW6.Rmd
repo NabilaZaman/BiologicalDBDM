@@ -1,0 +1,214 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+The dataset for HW 6 is the same as previous. 
+The four features we are interested in are 
+radius_mean, texture_mean, smoothness_mean, compactness_mean.	
+1.	Remove 20% of your data and save it as	test_set and the other 80% as training_set. 
+a.	Make sure your datasets will have the same ratio of Benign and Malignant.
+
+```{r}
+read.csv("data.csv", header=T, row.names=1)->cancer_data # reading the file and calling it cancer_data.
+
+cancer_data[c("diagnosis","radius_mean", "texture_mean", "smoothness_mean", "compactness_mean")] -> cancer_df
+head(cancer_df)
+```
+
+```{r}
+table(cancer_df$diagnosis)
+```
+
+```{r}
+# Balancing the dataset to make sure your test_set and training_set datasets will have the same proportion of Benign and Malignant.
+
+Benign<-cancer_df[which(cancer_df[,"diagnosis"] == "B"),]
+Malignant<-cancer_df[which(cancer_df[,"diagnosis"] == "M"),] 
+sample(1:nrow(Benign), nrow(Malignant))->rand.0
+Benign[rand.0,]->BT
+Malignant->MT
+```
+```{r}
+table(BT[, "diagnosis"])
+```
+```{r}
+table(MT[, "diagnosis"])
+```
+```{r}
+# Splitting the data into training and test set
+set.seed(900)
+training.split<-rbind(BT, MT) 
+split<-sample(nrow(training.split), floor(nrow(training.split) * 0.8)) # Storing 80% data as training set
+split.train<-training.split[split,]
+split.test<-training.split[-split,]
+```
+
+```{r}
+table(split.train[, "diagnosis"])
+```
+Part 1: SVM	
+Build a predictive model with SVM using the training_set with the four different variables listed above. 
+a.	Try using different values for c.Which c gives the best performance?
+
+#ANSWER: c = 0.1 gives the best performance
+
+```{r}
+library(e1071)
+library(AUC)
+```
+```{r}
+#Build an SVM model. 
+model_svm <- svm(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+            data = split.train,cost=10,kernel="linear",probability=T)
+plot(model_svm, split.train, radius_mean ~ texture_mean)
+
+```
+```{r}
+#  We’ll vary the cost from 0.1 to 30 by increment of 0.1.
+set.seed(100)
+svm_tune <- tune(svm, diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,data = split.train,kernel="linear",probability=T,
+            ranges = list(cost = seq(0.1, 30, 0.1))
+)
+print(svm_tune)
+```
+```{r}
+plot(svm_tune)
+```
+```{r}
+svm_tune$best.model
+```
+
+b.	Use test_set to calculate the AUC of the best model created using the training_set.
+
+```{r}
+best.svm = svm(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+            data = split.train, kernel="linear", cost=0.1, 
+            probability=T)
+
+# Using the test set to calculate the AUC of the best model
+best.svm.pred.prob = predict(best.svm, newdata = split.test, probability=T)
+table(best.svm.pred.prob,split.test$diagnosis)
+```
+```{r}
+best.svm.pred.prob.mat = attr(best.svm.pred.prob, "probabilities")
+bestsvmroc = roc(predictions = best.svm.pred.prob.mat[,2], split.test$diagnosis)
+auc(bestsvmroc)
+```
+
+
+
+
+Part 2. Neuralnet
+ Build a predictive model with Neuralnet to classify the test_set based on the values from training_set.
+a.	Try different size of hidden layers, ( 1, 10, 20). 
+Calculate the AUC of the Neuralnet models to determine which gives the best result? 
+
+
+```{r}
+
+library(neuralnet)
+library(e1071)
+
+# Scaling the data
+
+maxs<-apply(cancer_df[,2:5], 2, max)
+mins<-apply(cancer_df[,2:5], 2, min)
+
+scaled.data<-as.data.frame(scale(cancer_df[,2:5],center=mins,scale = maxs-mins))
+
+diagnosis<-as.numeric(cancer_df$diagnosis)-1
+
+scaled.data.df<-cbind(diagnosis,scaled.data)
+
+set.seed(70)
+table(scaled.data.df[,"diagnosis"])
+```
+```{r}
+#Balancing the dataset ;B = 0, M = 1
+allM<-scaled.data.df[which(scaled.data.df[,"diagnosis"] == 1),]
+allB<-scaled.data.df[which(scaled.data.df[,"diagnosis"] == 0),]
+
+rand.0 <- sample(1:nrow(allB), nrow(allM))
+Benign_Data <- allB[rand.0,]
+Malignant_Data <- allM
+
+#Splitting the scaled data into training and test set
+training_split<-rbind(Benign_Data, Malignant_Data)
+split1<-sample(nrow(training_split), floor(nrow(training_split) * 0.8))
+data.train<-training_split[split1,]
+data.test<-training_split[-split1,]
+```
+```{r}
+table(data.train[,"diagnosis"])
+```
+```{r}
+table(data.test[,"diagnosis"])
+```
+```{r}
+# Trying different size of hidden layers, hidden=c(1)
+data.nn.1 = neuralnet(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+            data = data.train,
+                    hidden=c(1), rep=1, linear.output = F)
+plot(data.nn.1)
+```
+```{r}
+#Calculating the AUC value of the Neuralnet model
+data.nn.1results = compute(data.nn.1, data.test[,2:5])
+
+data.nn.1roc = roc(data.nn.1results$net.result,
+                  as.factor(data.test$diagnosis))
+auc(data.nn.1roc)
+```
+
+
+```{r}
+# Trying different size of hidden layers, hidden=c(10)
+
+data.nn.10 = neuralnet(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+            data = data.train,
+                    hidden=c(10), rep=1, linear.output = F)
+
+plot(data.nn.10)
+```
+```{r}
+#Calculating the AUC value of the Neuralnet model
+data.nn.10results = compute(data.nn.10, data.test[,2:5])
+
+data.nn.10roc = roc(data.nn.10results$net.result,
+                  as.factor(data.test$diagnosis))
+auc(data.nn.10roc)
+```
+
+
+
+```{r}
+# Trying different size of hidden layers, hidden=c(20)
+data.nn.20 = neuralnet(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
+            data = data.train,
+                    hidden=c(20), rep=1, linear.output = F)
+
+plot(data.nn.20)
+```
+
+```{r}
+#Calculating the AUC value of the Neuralnet model
+data.nn.20results = compute(data.nn.20, data.test[,2:5])
+
+data.nn.20roc = roc(data.nn.20results$net.result,
+                  as.factor(data.test$diagnosis))
+auc(data.nn.20roc)
+```
+
+# The Neuralnet models where we set the hidden layer = 10 gives the best result
+
+
+
+
+
+
+
+
