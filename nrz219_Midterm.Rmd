@@ -1,0 +1,373 @@
+
+1. Create a database based on the schema below called netid_midterm.sqlite. It is similar to hw2 but can support many types of data and keep the tables normalized.
+
+```{r}
+setwd("~/Documents/Semester_2/BiologicalDbDm/HWfolder/Midterm") # setting the working directory
+library(RSQLite)  # loading the necessary libraries
+library(dplyr)
+library(reshape2)
+library(sqldf)
+library(RMariaDB)
+library(tidyverse)
+library(magrittr)
+```
+
+```{r}
+# Reading the text files in R
+BG<-read.delim("AthBIOGRID.txt")
+BM<-read.delim("AthBiomart.txt")
+Gen<- read.delim("NextGenRaw.txt")
+```
+
+```{r}
+# creating the table datatype: we'll create a data frame and specify the names of the columns and its value, that we want. 
+
+Data_Type<- c("Go.Term", "Probe", "Gene.Stable.ID", "Experiment")
+Data_Type<- data.frame("DTID"=c(1:4), "Data_Type"= Data_Type)
+Data_Type
+```
+
+```{r}
+# creating the table "data" containing columns Data_Name containing information about probes, genestable.id data, go term no and experiment name and column DID_Data_Type as foreign key connecting the Data_Type table, we'll combine the respective data from all the data sets.
+
+#Genes.stable.Id Data
+D.1 = data.frame(Data_Name = unique(BM[["Gene.stable.ID"]] ))
+D.2 = data.frame(Data_Name = unique(Gen[["GENE"]]))
+D.3 <- rbind(D.1, D.2)
+
+D.4 = data.frame(Data_Name = unique(BG[["Systematic.Name.Interactor.A"]] ))
+
+D.5 = data.frame(Data_Name = unique(BG[["Systematic.Name.Interactor.B"]] ))
+
+D.6 <- rbind(D.3, D.4, D.5)
+D.6 <- data.frame(Data_Name = unique(D.6[["Data_Name"]]))
+
+GeneStableID = data.frame( "DID" = c(27684:56344), "Data_Name" = D.6,"DID_Data_Type" = 3 )
+head(GeneStableID)
+
+```
+
+```{r}
+#Probe Data 
+Probe = data.frame("DID" = c(6148:27683), Data_Name = unique(BM[["Affymetrix.array.Arabidopsis.ATH1.121501.ID"]]), "DID_Data_Type" = 2)
+head(Probe)
+```
+
+```{r}
+# GoTerm Data
+GoTerm.Data = data.frame( "DID" = c(1:6147), Data_Name = unique(BM[["GO.term.accession"]]), "DID_Data_Type" = 1)
+head(GoTerm.Data)
+```
+```{r}
+#Experiment
+Exp = data.frame("DID" = c(56345:56348), Data_Name = names(Gen[2:5]), "DID_Data_Type" = 4)
+head(Exp)
+```
+
+```{r}
+# creating the final "Data" table, using rbind function to bind all the respective dataframes together by rows. 
+Data = rbind(GoTerm.Data, Probe, GeneStableID, Exp)
+head(Data)
+```
+```{r}
+#DataAttribute Table
+# creating the combined data attribute table: creating individual table for desired datatype and then by using rbind function and merging them together. 
+
+#GoTerm
+
+Go.term = data.frame( "Data_Attribute_Type" = "Annotation","DID_Data" = GoTerm.Data[["DID"]], "Data_Value" = unique(BM[["GO.term.name"]]) )
+head(Go.term)
+```
+```{r}
+# creating a dataframe, containing information about gene names and gene description from Biomart and using the function unique, to eliminate repitative rows. 
+
+gene_desc<- data.frame(Data_Name = BM[["Gene.stable.ID"]], Data_Attribute_Type = BM[["Gene.description"]], Data_Value = BM[["Gene.name"]])
+gene_desc<-unique(gene_desc)
+Gene_Attribute = dplyr::left_join(GeneStableID, gene_desc, By = "Data_Name")
+Gene_Attribute = Gene_Attribute[c(4,1,5)]
+colnames(Gene_Attribute) = c("Data_Attribute_Type", "DID_Data", "Data_Value")
+head(Gene_Attribute)
+```
+
+
+```{r}
+#creating the final DataAttribute Table using the rbind function and join the individual attribute table.
+Data_Attribute = rbind(Go.term, Gene_Attribute)
+
+Data_Attribute[["DAID"]] <- c(1:34808)
+Data_Attribute = Data_Attribute[c(4,1,2,3)]
+head(Data_Attribute)
+```
+
+
+```{r}
+#creating the relationship table containing information about the expression values and various relationship of genes: creating individual relationship tables for each relationship and then combining them together by rows using the rbind function. 
+
+#Relationship Table 
+#Experiment Data
+
+Exp_Gen = dplyr::inner_join(D.2, Data, By = "Data_Name")
+#Experiment_Genes
+
+Exp_Gen = Exp_Gen[c(2,1)]
+head(Exp_Gen)
+```
+
+
+```{r}
+Exp_Values <- data.frame(Gen)
+M_EV = melt(data = Exp_Values, id.vars = "GENE", variable.name = "RelValue", value.name = "Exp_Values")
+colnames(M_EV) <- c("Data_Name", "Exp_Name", "RelValue")
+
+#M_EV
+
+J_Exp_Values = dplyr::inner_join(Exp_Gen, M_EV,  By = "Data_Name")
+J_Exp_Values = J_Exp_Values[c(1,3,4)]
+colnames(J_Exp_Values) = c("DID_Data", "Data_Name", "RelValue") 
+#J_Exp_Values
+
+JExp = dplyr::inner_join(J_Exp_Values, Exp, By = "Data_Name")
+JExp = JExp[c(1,4,3)]
+
+#JExp
+
+
+JExp_Value = data.frame("Relationship" = "Gene to Experiment", "DID_Data_X" = JExp[["DID_Data"]], "DID_Data_Y" = JExp[["DID"]], "RelValue" = JExp[["RelValue"]])
+head(JExp_Value)
+```
+
+
+```{r}
+#Gene to Probe
+
+PG = dplyr::inner_join(D.1, Data, By = "Data_Name")
+PG = PG[c(2,1)]
+#PG
+
+Probe.1 = data.frame(Data_Name = BM[["Gene.stable.ID"]], Probe_Name = BM[["Affymetrix.array.Arabidopsis.ATH1.121501.ID"]])
+Probe.2 = dplyr::left_join(Probe.1, PG, By = "Data_Name")
+Probe.2 = Probe.2[c(3,1,2)]
+colnames(Probe.2) = c("DID_Data", "Data_Name_1", "Data_Name")
+#Probe.2
+Probe.3 = dplyr::inner_join(Probe.2, Probe, By = "Data_Name")
+Probe.3 = Probe.3[c(1,4)]
+Probe.4 = unique(Probe.3)
+colnames(Probe.4) = c("DID_Data_X", "DID_Data_Y")
+Probe.4[["Relationship"]] = c("Gene to Probe")
+
+Probe.4[["RelValue"]] = c("N/A")
+PG_Data = Probe.4[c(3,1,2,4)]
+
+row.names(PG_Data) <- NULL
+head(PG_Data)
+
+```
+
+
+```{r}
+#Gene to GoTerm
+
+Goterm = data.frame(Data_Name = BM[["Gene.stable.ID"]], Go_Term_Value = BM[["GO.term.accession"]])
+Goterm = unique(Goterm)
+Goterm.1 = dplyr::inner_join(Goterm, PG, By = "Data_Name")
+Goterm.1 = Goterm.1[c(3,2)]
+colnames(Goterm.1) = c("DID_Data_X", "Data_Name")
+#Goterm.1
+Goterm.2 = dplyr::inner_join(Goterm.1, GoTerm.Data, By = "Data_Name")
+Goterm.2 = Goterm.2[c(1,3)]
+colnames(Goterm.2) = c("DID_Data_X", "DID_Data_Y")
+Goterm.2[["Relationship"]] = c("Gene To GoTerm")
+#Goterm.2
+Goterm.2[["RelValue"]] = c("N/A")
+Goterm_desc = Goterm.2[c(3,1,2,4)]
+head(Goterm_desc)
+```
+
+
+```{r}
+#Gene To Gene Interaction
+
+Gene.Intr <- data.frame(Sys.Intr.A = BG[["Systematic.Name.Interactor.A"]], Sys.Intr.B = BG[["Systematic.Name.Interactor.B"]], Relationship = BG[["Experimental.System"]], RelValue = "N/A")
+Gene.Intr = unique(Gene.Intr)
+colnames(Gene.Intr) = c("Data_Name", "Data_Name_X", "Relationship","RelValue")
+Gene.Intr = dplyr::inner_join(Gene.Intr, Data, By = "Data_Name")
+Gene.Intr = Gene.Intr[c(5,2,3,4 )]
+colnames(Gene.Intr) = c("DID_Data_X", "Data_Name","Relationship", "RelValue")
+Gene.Intr = dplyr::inner_join(Gene.Intr, Data, By = "Data_Name")
+Gene.Intr = Gene.Intr[c(1,5,4,3)]
+colnames(Gene.Intr) = c("DID_Data_X", "DID_Data_Y", "RelValue", "Relationship")
+Gene.Intr = Gene.Intr[c(4,1,2,3)]
+head(Gene.Intr) 
+```
+
+
+```{r}
+Relationship = rbind(JExp_Value, PG_Data, Goterm_desc, Gene.Intr)
+Relationship[["RID"]] <- c(1:342070)
+Relationship = Relationship[c(5,1,2,3,4)]
+head(Relationship)
+```
+
+
+```{r}
+#using function dbconnect() to make connection with the database.
+nrz219_db<-dbConnect(SQLite(), dbname= "nrz219Midterm.sqlite")
+if (dbExistsTable(nrz219_db, "Data_Type")) dbSendQuery(nrz219_db, "drop table Data_Type")
+if (dbExistsTable(nrz219_db, "Data")) dbSendQuery(nrz219_db, "drop table Data")
+if (dbExistsTable(nrz219_db, "Data_Attribute")) dbSendQuery(nrz219_db, "drop table Data_Attribute")
+if (dbExistsTable(nrz219_db, "Relationship")) dbSendQuery(nrz219_db, "drop table Relationship")
+dbListTables(nrz219_db)
+
+```
+```{r}
+dbSendQuery(nrz219_db, "CREATE TABLE Data_Type (DTID INTEGER PRIMARY KEY  NOT NULL ,
+                                            Data_Type STRING)")
+dbSendQuery(nrz219_db, "CREATE TABLE Data (DID INTEGER PRIMARY KEY  NOT NULL , Data_Name STRING , DID_Data_Type INTEGER REFERENCES Data_Type (Data_Type))")
+dbSendQuery(nrz219_db, "CREATE TABLE Data_Attribute (DAID INTEGER PRIMARY KEY  NOT NULL , Data_Attribute_Type STRING , DID_Data INTEGER REFERENCES Data (Data_Name))")
+dbSendQuery(nrz219_db, "CREATE TABLE Relationship (RID INTEGER PRIMARY KEY  NOT NULL , Relationship STRING , DID_Data_X INTEGER REFERENCES Data (Data_Name), DID_Data_Y INTEGER REFERENCES Data (Data_Name), RelValue STRING )")
+```
+
+
+```{r}
+#to write the created dataframes into the tables created in the database in mysqlite, use the function dbWriteTable(), followed by the connection and then the df followed by the named of the table.
+
+dbWriteTable(nrz219_db, "Data_Type", Data_Type, overwrite = TRUE)
+dbWriteTable(nrz219_db, "Data", Data, overwrite = TRUE)
+dbWriteTable(nrz219_db, "Data_Attribute", Data_Attribute, overwrite = TRUE)
+dbWriteTable(nrz219_db, "Relationship", Relationship, overwrite = TRUE)
+#dbDisconnect()
+```
+```{r}
+dbListFields(nrz219_db, "Data_Type")
+getData = dbGetQuery(nrz219_db, " select * from Data_Type")
+dim(getData)
+getData[1:4,]
+```
+2) Write a function getReadCounts() where the input is a go-term and the output is the read count for each gene in each experiment. 
+
+
+```{r}
+#creating a function to get the gene and its expression value associated with input go term 
+getReadCounts = function(goterm){
+
+GN = tbl(nrz219_db, "Data_Attribute")
+GOA = GN %>% select(DAID, Data_Attribute_Type, DID_Data, Data_Value) %>% filter(Data_Attribute_Type== "Annotation") %>% collect()
+colnames(GOA) = c("DAID", "Data_Attribute_Type", "DID_Data_Y", "Data_Value" )
+GOA
+
+GTG = tbl(nrz219_db, "Relationship")
+GT = GTG %>% select(RID, Relationship, DID_Data_X, DID_Data_Y, RelValue) %>% filter( Relationship=="Gene To GoTerm") %>% collect()
+#GT
+
+GTerm_name = inner_join(GT, GOA, by = c("DID_Data_Y"="DID_Data_Y"), copy = FALSE) %>% select(RID, DID_Data_X, Data_Value) %>% collect()
+
+#GTerm_name
+
+EG = tbl(nrz219_db, "Relationship")
+EV = EG %>% select(RID, Relationship, DID_Data_X, DID_Data_Y, RelValue) %>% filter( Relationship=="Gene to Experiment") %>% collect()
+#EV
+
+GOE = inner_join(GTerm_name, EV, by = c("DID_Data_X"="DID_Data_X"), copy = FALSE) %>% select(Data_Value, DID_Data_X, DID_Data_Y, RelValue) %>% collect()
+colnames(GOE) = c("Data_Value", "DID", "DID_Data_Y", "RelValue")
+#GOE
+
+G = tbl(nrz219_db, "Data")
+GD = inner_join(GeneStableID, GOE, by = c("DID"="DID"), copy = FALSE %>% select(DID, Data_Name, Data_Value, DID_Data_Y, RelValue)) %>% collect()
+GD = GD[c(4,2,5,6)]
+colnames(GD) = c("Data_Value", "Data_Name_X", "DID", "RelValue")
+#GD
+
+GDE = inner_join(GD, Exp, by = c("DID"="DID"), copy = FALSE %>% select(Data_Value, Data_Name_X, Data_Name, RelValue)) %>% collect()
+GDE = GDE[c(1,2,5,4)]
+colnames(GDE) = c("goTerm", "gene", "experiment", "expval")
+#GDE
+
+GDE1 = GDE %>% 
+filter(goTerm==goterm) %>% 
+select(goTerm, gene, experiment, expval) %>% collect()
+return(GDE1)
+}
+```
+
+```{r}
+head(getReadCounts("binding"))
+```
+
+3) Speeding up our query.Take a time stamp in R to calculate how long the query in part 2 takes.
+# Part A
+```{r}
+# Using the function proc.time() to calculate the time taken by the query to run
+A = proc.time()
+head(getReadCounts("binding"))
+B = proc.time()
+Time_it_took = B-A
+Time_it_took
+```
+# Part B
+```{r}
+# creating Indexes
+# AN INDEX HELPS TO SPEED UP THE SELECT QUERY AND THE WHERE CLAUSE. 
+# We used the CREATE INDEX statement, followed by the name of the index, followed by table name on which we want to create the index.
+#I created an index on the Relationship table (Relationship, DID_Data_X, DID_Data_Y, RelValue, ) as it was used more numbers of times to retrieve and combine different sets of data.
+
+dbSendQuery(nrz219_db, "CREATE INDEX index_relation ON Relationship (Relationship, DID_Data_X, DID_Data_Y, RelValue)")
+```
+```{r}
+# to make a connection to database and get the index version of relationship table
+# run the function again with the new index version
+
+Relation_Index = tbl(nrz219_db, "Relationship")
+getReadCounts = function(goterm){
+
+GN = tbl(nrz219_db, "Data_Attribute")
+GOA = GN %>% select(DAID, Data_Attribute_Type, DID_Data, Data_Value) %>% filter(Data_Attribute_Type== "Annotation") %>% collect()
+colnames(GOA) = c("DAID", "Data_Attribute_Type", "DID_Data_Y", "Data_Value" )
+GOA
+
+Relation_Index = tbl(nrz219_db, "Relationship")
+GT = Relation_Index %>% select(RID, Relationship, DID_Data_X, DID_Data_Y, RelValue) %>% filter( Relationship=="Gene To GoTerm") %>% collect()
+#GT
+
+GTerm_name = inner_join(GT, GOA, by = c("DID_Data_Y"="DID_Data_Y"), copy = FALSE) %>% select(RID, DID_Data_X, Data_Value) %>% collect()
+
+#GTerm_name
+
+Relation_Index = tbl(nrz219_db, "Relationship")
+EV = Relation_Index  %>% select(RID, Relationship, DID_Data_X, DID_Data_Y, RelValue) %>% filter( Relationship=="Gene to Experiment") %>% collect()
+#EV
+
+GOE = inner_join(GTerm_name, EV, by = c("DID_Data_X"="DID_Data_X"), copy = FALSE) %>% select(Data_Value, DID_Data_X, DID_Data_Y, RelValue) %>% collect()
+colnames(GOE) = c("Data_Value", "DID", "DID_Data_Y", "RelValue")
+#GOE
+
+G = tbl(nrz219_db, "Data")
+GD = inner_join(GeneStableID, GOE, by = c("DID"="DID"), copy = FALSE %>% select(DID, Data_Name, Data_Value, DID_Data_Y, RelValue)) %>% collect()
+GD = GD[c(4,2,5,6)]
+colnames(GD) = c("Data_Value", "Data_Name_X", "DID", "RelValue")
+#GD
+
+GDE = inner_join(GD, Exp, by = c("DID"="DID"), copy = FALSE %>% select(Data_Value, Data_Name_X, Data_Name, RelValue)) %>% collect()
+GDE = GDE[c(1,2,5,4)]
+colnames(GDE) = c("goTerm", "gene", "experiment", "expval")
+#GDE
+
+GDE1 = GDE %>% 
+filter(goTerm==goterm) %>% 
+select(goTerm, gene, experiment, expval) %>% collect()
+return(GDE1)
+}
+
+```
+```{r}
+head(getReadCounts("binding"))
+```
+```{r}
+# Taking the time stamp for the indexed version and to see that the elapsed time has reduced from the non-indexed version
+
+D = proc.time()
+head(getReadCounts("binding"))
+E = proc.time()
+Time_it_took = E-D
+Time_it_took
+```
+by creating the indexes we see that our query now takes much lesser time to run
