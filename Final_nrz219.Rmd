@@ -1,0 +1,450 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+The Dataset
+This dataset is a collection of samples obtained from the National Institute of Diabetes and Digestive and Kidney Disease.
+The goal is to predict whether an individual has diabetes or not.
+
+```{r}
+# load the dataset
+read.csv("PimaIndiansDiabetes.csv")-> DF 
+head(DF)
+```
+
+Q1: Which variables are numeric and which are categorical? Explain why. (20pts) 
+Make sure to convert the variables to the correct type.
+
+```{r}
+summary(DF)
+```
+```{r}
+str(DF)
+```
+
+*Variable Type:-*
+1. *Categorical:* Outcome is a categorical variable. It is categorized into two groups 0 and 1. 0 indicates "without diabetes" and 1 indicating "with diabetes".
+
+2. *Numerical:* Pregnancies, Glucose, Blood pressure, Skin thickness, Insulin, BMI, DiabetesPedigreeFunction and Age are continuous numerical variables. All these variables show quantitative data that could be measured. Pregnancies and Age are discrete numerical variables, their value always has to be positive integers, making them "discrete". All other numerical values are continous and they can have infinite number of possible values.
+
+```{r}
+# converting the variables outcome as a factor and other variables as numeric
+DF$Outcome <- as.factor(DF$Outcome)
+DF$Pregnancies <- as.numeric(DF$Pregnancies)
+DF$Glucose <- as.numeric(DF$Glucose)
+DF$BloodPressure <- as.numeric(DF$BloodPressure)
+DF$SkinThickness <- as.numeric(DF$SkinThickness)
+DF$Insulin <- as.numeric(DF$Insulin)
+DF$Age <- as.numeric(DF$Age)
+```
+```{r}
+str(DF)
+```
+
+Q2: Use appropriate statistical analysis to determine which of the variables ( on their own ) are most helpful in predicting the outcome? (20pts)
+For each variable draw an appropriate graph ( boxplot for numerical values and barplot for categorical values). Explain your answer.
+
+```{r}
+library(ggplot2) # using the library ggplot for creating box plot
+# box plot for Pregnancies
+box_plot1 <- ggplot(DF, aes(x = Outcome, y = Pregnancies, color = Outcome))
+box_plot1 +
+    geom_boxplot()
+```
+```{r}
+# box plot for Glucose
+box_plot2 <- ggplot(DF, aes(x = Outcome, y = Glucose, color = Outcome))
+box_plot2 +
+    geom_boxplot()
+```
+```{r}
+# box plot for BloodPressure
+box_plot3 <- ggplot(DF, aes(x = Outcome, y = BloodPressure, color = Outcome))
+box_plot3 +
+    geom_boxplot()
+```
+```{r}
+# box plot for SkinThickness
+box_plot4 <- ggplot(DF, aes(x = Outcome, y = SkinThickness, color = Outcome))
+box_plot4 +
+    geom_boxplot()
+```
+```{r}
+# box plot for Insulin
+box_plot5 <- ggplot(DF, aes(x = Outcome, y = Insulin, color = Outcome))
+box_plot5 +
+    geom_boxplot()
+```
+```{r}
+# box plot for BMI
+box_plot6 <- ggplot(DF, aes(x = Outcome, y = BMI, color = Outcome))
+box_plot6 +
+    geom_boxplot()
+```
+```{r}
+# box plot for DiabetesPedigreeFunction
+box_plot7 <- ggplot(DF, aes(x = Outcome, y = DiabetesPedigreeFunction, color = Outcome))
+box_plot7 +
+    geom_boxplot()
+```
+```{r}
+# box plot for Age
+box_plot8 <- ggplot(DF, aes(x = Outcome, y = Age, color = Outcome))
+box_plot8 +
+    geom_boxplot()
+```
+```{r}
+# bar plot for Outcome
+bar_plot_Outcome <- ggplot(data = DF, aes(x=Outcome, fill= Outcome))+ geom_bar(stat="count")
+bar_plot_Outcome
+```
+```{r}
+library(randomForest)
+# To identify the most important variable, using random forests
+datarf = randomForest(Outcome ~ ., data=DF, importance=T)
+varImpPlot(datarf)
+```
+#
+
+**ANSWER:** Glucose seems to be the most important variable
+
+```{r}
+# To identify the most important variable, we will perform a logitical regression  
+LR_impVariable <- glm(Outcome ~ Pregnancies + Glucose + BloodPressure + SkinThickness + Insulin + BMI+ DiabetesPedigreeFunction + Age, data = DF, family = binomial)
+coef(LR_impVariable)
+#summary(LR_impVariable)
+```
+```{r}
+# Performing ANOVA Chi-square test to check the overall effect of variables 
+anova(LR_impVariable, test = "Chisq")
+```
+Removing BloodPressure, Age and Insulin as they are less significant in comparison to other variables. 
+
+```{r}
+# Compute a correlation matrix
+library(corrplot)
+DF_cor <- cor(DF[,1:8])
+DF_cor
+corrplot(DF_cor)
+```
+Removing skin thickness to retain only the features with p-value less than 0.05
+
+```{r}
+#Building a new model by removing the less significant variables to achieve a lower AIC value
+LR_impVariable_new <- glm(Outcome ~ Pregnancies + Glucose + BMI + DiabetesPedigreeFunction + BloodPressure, data = DF, family = binomial)
+summary(LR_impVariable_new)
+```
+```{r}
+anova(LR_impVariable, LR_impVariable_new, test = "Chisq")
+```
+The new model has a AIC value less than the original one (740.56 < 741.45) representing a better model
+**ANSWER:** Glucose is the most important variable
+
+
+
+
+Q3: Are there any missing values? and how do we fix this ? (20pts)
+Notice that some of the values are missing and replaced with 0. For example a blood pressure of 0 doesn’t make sense and it can have an impact on the models. So how do we identify which 0 represents the value 0 and which represents NA? Explain your answer.
+```{r}
+sapply(DF, function(x) sum(is.na(x)))
+```
+```{r}
+which(DF$Pregnancies == 0) # Number of pregnancies can be zero, so assuming that there is no missing data in the Pregnancy column
+```
+```{r}
+# Substituting the missing values by replacing them with mean values
+
+#which(DF$Glucose == 0) # Glucose can't be 0 and has to be replaced
+DF[which(DF$Glucose == 0),"Glucose"] <- mean(DF$Glucose)
+```
+```{r}
+# Substituting the missing values by replacing them with mean values
+
+#which(DF$BloodPressure == 0) # BloodPressure can't be 0 and has to be replaced
+DF[which(DF$BloodPressure == 0),"BloodPressure"] <- mean(DF$BloodPressure)
+```
+```{r}
+# Substituting the missing values by replacing them with mean values
+
+#which(DF$SkinThickness == 0) # Skin thickness is not possible to be 0 and has to be replaced
+DF[which(DF$SkinThickness == 0),"SkinThickness"] <- mean(DF[which(DF$SkinThickness != 0),"SkinThickness"]) # We replace missing data with the average of non-zero value because too much 0's will affect the average calculation
+```
+```{r}
+# Substituting the missing values by replacing them with mean values
+
+#which(DF$Insulin == 0) # Insulin can't be 0 and has to be replaced
+DF[which(DF$Insulin == 0),"Insulin"] <- mean(DF[which(DF$Insulin != 0),"Insulin"])
+```
+```{r}
+# Substituting the missing values by replacing them with mean values
+
+#which(DF$BMI == 0) #BMI can't be 0 and has to be replaced
+DF[which(DF$BMI == 0),"BMI"] <- mean(DF$BMI)
+```
+```{r}
+which(DF$DiabetesPedigreeFunctions == 0) # no missing values in DiabetesPedigreeFunction
+```
+```{r}
+which(DF$Age == 0) # no missing values in Age
+```
+
+Q4: Building the Model (20pts)
+· You are free to use either : leave out 30% or 10xfold Cross Validation for your testing purpose.
+· You may pick any of the following to perform your modeling ( randomForest, SVM, KNN, or neural nets)
+· Explain your approach ( for example, if you are only picking one, why did you pick it? if you are going to do
+all, how will you decide which is best?)
+
+**Answer:** Using the leave out 30% test method for all the 4 models to determine the best model
+
+```{r}
+Negative = DF[which(DF[,"Outcome"] == "0"),]
+Positive = DF[which(DF[,"Outcome"] == "1"),] 
+
+sample(1:nrow(Negative), nrow(Positive))->rand.0
+Negative[rand.0,]-> Negative_test
+Positive-> Positive_test
+```
+```{r}
+set.seed(500)
+#splitting the data which contains outcome =1 (have diabetes) as training set (70%) and test set (30%)
+split_Positive<-sample(nrow(Positive_test), floor(nrow(Positive_test) * 0.7))
+split.train_Positive <- Positive_test[split_Positive,]
+split.test_Positive <- Positive_test[-split_Positive,]
+```
+```{r}
+set.seed(500)
+#splitting the data which contains outcome = 0 (no diabetes) as training set (70%) and test set (30%)
+split_Negative<-sample(nrow(Negative_test), floor(nrow(Negative_test) * 0.7))
+split.train_Negative <- Negative_test[split_Negative,]
+split.test_Negative <- Negative_test[-split_Negative,]
+```
+```{r}
+split.test <- rbind(split.test_Positive, split.test_Negative)
+table(split.test[, "Outcome"])
+```
+
+```{r}
+split.train <- rbind(split.train_Positive, split.train_Negative)
+table(split.train[, "Outcome"])
+```
+#### Random Forest Model
+
+```{r}
+library("AUC")
+randomforest_auc <- c()
+
+for(i in 1:8){
+    rf <- randomForest(Outcome ~ ., data = split.train,ntree=100,mtry = i,importance=TRUE)
+    prob <- predict(rf, newdata = split.test,type="prob")[,2]
+    randomforest_auc <- c(randomforest_auc,auc(roc(prob, split.test$Outcome)))
+}
+print(randomforest_auc)
+
+```
+#### KNN Model
+```{r}
+# Scaling the test and training sets
+scaled_testData <- as.data.frame(scale(split.test[,1:8]))
+scaled_trainData <- as.data.frame(scale(split.train[,1:8]))
+```
+
+
+```{r}
+# To Calculate the AUC values of  KNN models using a for loop
+library("class")
+
+KNN_AUC<-function(n){
+  out<-matrix(data=NA, nrow = 1, ncol = n)
+  rownames(out)<-c("AUC")
+  for (i in 1:n){
+  data.knn.prob = knn(scaled_trainData, scaled_testData, split.train$Outcome,k=i,prob = TRUE)
+  diagnosis_test=which(data.knn.prob==0)
+  attr(data.knn.prob,"prob")[diagnosis_test] = 1-attr(data.knn.prob,"prob")[diagnosis_test]
+  data.knn.prob_roc <- roc(attr(data.knn.prob,"prob"),split.test$Outcome)
+  out[,i]=auc(data.knn.prob_roc)
+  }
+  return(out)
+}
+```
+```{r}
+KNN_AUC(30) # to print the AUC values of first 30 k values
+```
+
+#### SVM  Model
+```{r}
+scaled_testData$Outcome <- split.test$Outcome
+scaled_trainData$Outcome <- split.train$Outcome
+scaled_trainData$Outcome <- as.factor(scaled_trainData$Outcome)
+scaled_testData$Outcome  <- as.factor(scaled_testData$Outcome)
+table(scaled_trainData[,"Outcome"])
+```
+```{r}
+table(scaled_testData[,"Outcome"])
+```
+
+```{r}
+library(e1071)
+
+SVM_AUC <-function(n){
+  s <- seq(0.0, n, by = 0.5)
+  diab_mat<-matrix(nrow=length(s),ncol=2 )
+  for (i in 1:length(s)){
+    svm_model = svm(Outcome ~ .,data=scaled_trainData,cost=i,probability=T)
+    data_pred= predict(svm_model,scaled_testData, probability=T)
+    data_pred_mat=attr(data_pred,"probabilities")
+
+    out<-auc(roc(predictions =data_pred_mat[,"1"],scaled_testData$Outcome))
+    diab_mat[i,1]=s[i]
+    diab_mat[i,2]=out}
+    colnames(diab_mat) <- c("cost","AUC")
+  return(diab_mat)
+}
+```
+```{r}
+SVM_AUC(5)
+```
+
+#### Neural Network Model
+```{r}
+# scale the data first
+maxs<-apply(DF[,1:5], 2, max)
+mins<-apply(DF[,1:5], 2, min)
+scaled.data<-as.data.frame(scale(DF[,1:5],center=mins,scale = maxs-mins))
+Outcome<-as.numeric(DF$Outcome) -1 
+scaled.data.df<-cbind(Outcome,scaled.data)
+
+set.seed(5)
+
+table(scaled.data.df[,"Outcome"])
+
+```
+```{r}
+all0<-scaled.data.df[which(scaled.data.df[,"Outcome"] == 0),]
+all1<-scaled.data.df[which(scaled.data.df[,"Outcome"] == 1),]
+
+rand.0 <- sample(1:nrow(all0), nrow(all1))
+No_diabetes <- all0[rand.0,]
+Yes_diabetes <- all1
+
+training.split<-rbind(No_diabetes, Yes_diabetes)
+split<-sample(nrow(training.split), floor(nrow(training.split) * 0.7))
+data.train<-training.split[split,]
+data.test<-training.split[-split,]
+
+table(data.train[,"Outcome"])
+```
+```{r}
+table(data.test[,"Outcome"])
+```
+
+```{r}
+library(neuralnet)
+
+data.nn = neuralnet(Outcome ~ ., data = data.train, hidden=c(5), rep=1, linear.output = F)
+
+data.nn.results = neuralnet::compute(data.nn, data.test[,2:6])
+
+data.nn.roc = roc(data.nn.results$net.result,as.factor(data.test$Outcome))
+auc(data.nn.roc)
+```
+```{r}
+final_auc <- c()
+
+data.test$Outcome <-as.factor(data.test$Outcome)
+
+for (i in c(1:2)){
+  data.nn = neuralnet(Outcome ~ ., data=data.train, hidden=c(i), rep=3, linear.output = F)
+  data.nn.results = neuralnet::compute(data.nn, data.test[,2:6])
+  data.nn.roc = roc(data.nn.results$net.result, data.test$Outcome)
+  final_auc[i] <- auc(data.nn.roc)
+}
+final_auc
+```
+
+
+Q5: The Final Model (20pts)
+· Determine which model worked the best and why you think so.
+· Create a plot using colors to show which points are were predicted to have Diabetes and which were not. Use shapes to show which points were actually Diabetes and which weren’t.
+ 
+# Best Models
+
+#### Random Forest when mtry = 2
+```{r}
+rf3 = randomForest(Outcome ~., data=split.train, importance=T,mtry=7)
+rf3.results = predict(rf3,newdata = split.test,OOB=TRUE)
+best_rf_result <- auc(roc(rf3.results,split.test$Outcome))
+best_rf_result
+```
+#### KNN when k = 27
+```{r}
+knn_model<-knn(scaled_trainData[,c("Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI", "DiabetesPedigreeFunction", "Age")],
+                 scaled_testData[,c("Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI", "DiabetesPedigreeFunction", "Age")],
+                 scaled_trainData$Outcome,k=27,prob=T)
+
+diabetes_test=which(knn_model==0)
+attr(knn_model,"prob")[diabetes_test] = 1-attr(knn_model,"prob")[diabetes_test]
+knn_roc_result <- roc(attr(knn_model,"prob"),split.test$Outcome)
+best_knn_result <-auc(knn_roc_result)
+best_knn_result
+```
+#### SVM model when cost = 0.05
+```{r}
+svm_model <- svm(Outcome ~.,data = scaled_trainData, kernel="linear", cost= 0.05, probability=T)
+data.svm.pred.prob = predict(svm_model, scaled_testData, probability=T)
+data.svm.pred.prob.mat = attr(data.svm.pred.prob, "probabilities")
+datasvmroc = roc(predictions = data.svm.pred.prob.mat[,1], split.test$Outcome)
+best_svm_result <- auc(datasvmroc)
+best_svm_result
+```
+#### neural network model when hidden layer = 1
+
+```{r}
+data.nn.1 = neuralnet(Outcome ~ ., data = data.train, hidden=c(1), rep=5, linear.output = F)
+
+data.nn.1.results = neuralnet::compute(data.nn, data.test[,2:6])
+
+data.nn.1.roc = roc(data.nn.1.results$net.result,as.factor(data.test$Outcome))
+best_nn_result <- auc(data.nn.1.roc)
+best_nn_result
+```
+
+Comparing different models with their best AUC values to find the best model
+
+```{r}
+all_models <-c(best_rf_result, best_knn_result, best_svm_result, best_nn_result)
+model_data <-data.frame(name=c("RandomForest", "KNN", "SVM", "NeuralNet"), value=all_models)
+
+ggplot(model_data, aes(x=name, y=value)) + geom_bar(stat = "identity") +labs(title="Comparing AUC values",x ="Different Models", y = "AUC value") + theme(plot.title = element_text(hjust = 0.5)) + geom_text(aes(label = round(value, 3)))
+```
+#
+
+**Answer:** The **SVM model** seems to be the best performing model when cost = 0.05
+
+#### Create a plot using colors to show which points are were predicted to have Diabetes and which were not. Use shapes to show which points were actually Diabetes and which weren’t.
+
+```{r}
+svm_model <- svm(Outcome ~.,data = scaled_trainData, kernel="linear", cost= 0.05, probability=T)
+
+data.svm.predict<-predict(svm_model, newdata=scaled_testData, type="response")
+data.svm.predict2 = data.svm.predict 
+
+data.svm.predict2[data.svm.predict>0.5]="1" 
+data.svm.predict2[data.svm.predict<=0.5]="0" 
+```
+```{r}
+Plot_df <- scaled_testData
+Plot_df <- cbind(Plot_df,data.svm.predict2)
+colnames(Plot_df)[which(names(Plot_df) == "data.svm.predict2")] <- "Diabetes_Outcome"
+```
+```{r}
+# One can change the variables accordingly to compare the outcome
+ggplot(Plot_df)+geom_point(mapping = aes(x=Age, y=Glucose, color=factor(Diabetes_Outcome), shape = factor(Outcome)))
+```
+```{r}
+ggplot(Plot_df)+geom_point(mapping = aes(x=BloodPressure, y=Glucose, color=factor(Diabetes_Outcome), shape=factor(Outcome)))
+```
+
