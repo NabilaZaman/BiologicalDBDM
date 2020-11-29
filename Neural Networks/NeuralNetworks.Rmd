@@ -6,11 +6,11 @@ output:
 ---
 
 
-The dataset for HW 6 is the same as previous. 
+The dataset we are using here is data.csv 
+
 The four features we are interested in are 
 radius_mean, texture_mean, smoothness_mean, compactness_mean.	
-1.	Remove 20% of your data and save it as	test_set and the other 80% as training_set. 
-a.	Make sure your datasets will have the same ratio of Benign and Malignant.
+
 
 ```{r}
 read.csv("data.csv", header=T, row.names=1)->cancer_data # reading the file and calling it cancer_data.
@@ -23,9 +23,8 @@ head(cancer_df)
 table(cancer_df$diagnosis)
 ```
 
+Balancing the dataset to make sure our test_set and training_set datasets will have the same proportion of Benign and Malignant.
 ```{r}
-# Balancing the dataset to make sure your test_set and training_set datasets will have the same proportion of Benign and Malignant.
-
 Benign<-cancer_df[which(cancer_df[,"diagnosis"] == "B"),]
 Malignant<-cancer_df[which(cancer_df[,"diagnosis"] == "M"),] 
 sample(1:nrow(Benign), nrow(Malignant))->rand.0
@@ -38,8 +37,11 @@ table(BT[, "diagnosis"])
 ```{r}
 table(MT[, "diagnosis"])
 ```
+
+Splitting the data into training and test set
+Removing 20% of our data and saving it as	test set and the other 80% as training set. 
+
 ```{r}
-# Splitting the data into training and test set
 set.seed(900)
 training.split<-rbind(BT, MT) 
 split<-sample(nrow(training.split), floor(nrow(training.split) * 0.8)) # Storing 80% data as training set
@@ -51,10 +53,7 @@ split.test<-training.split[-split,]
 table(split.train[, "diagnosis"])
 ```
 Part 1: SVM	
-Build a predictive model with SVM using the training_set with the four different variables listed above. 
-a.	Try using different values for c.Which c gives the best performance?
-
-#ANSWER: c = 0.1 gives the best performance
+Building a predictive model with SVM using the training_set with the four different variables listed above. 
 
 ```{r}
 library(e1071)
@@ -67,6 +66,9 @@ model_svm <- svm(diagnosis ~ radius_mean + texture_mean + smoothness_mean + comp
 plot(model_svm, split.train, radius_mean ~ texture_mean)
 
 ```
+Using different values for c.
+c = 0.1 gives the best performance
+
 ```{r}
 #  We’ll vary the cost from 0.1 to 30 by increment of 0.1.
 set.seed(100)
@@ -82,14 +84,13 @@ plot(svm_tune)
 svm_tune$best.model
 ```
 
-b.	Use test_set to calculate the AUC of the best model created using the training_set.
+Using test_set to calculate the AUC of the best model created using the training_set.
 
 ```{r}
 best.svm = svm(diagnosis ~ radius_mean + texture_mean + smoothness_mean + compactness_mean,
             data = split.train, kernel="linear", cost=0.1, 
             probability=T)
 
-# Using the test set to calculate the AUC of the best model
 best.svm.pred.prob = predict(best.svm, newdata = split.test, probability=T)
 table(best.svm.pred.prob,split.test$diagnosis)
 ```
@@ -103,10 +104,7 @@ auc(bestsvmroc)
 
 
 Part 2. Neuralnet
- Build a predictive model with Neuralnet to classify the test_set based on the values from training_set.
-a.	Try different size of hidden layers, ( 1, 10, 20). 
-Calculate the AUC of the Neuralnet models to determine which gives the best result? 
-
+Building a predictive model with Neuralnet to classify the test_set based on the values from training_set.
 
 ```{r}
 
