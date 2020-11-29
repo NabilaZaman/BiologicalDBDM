@@ -27,9 +27,7 @@ read.csv("PimaIndiansDiabetes.csv")-> DF
 head(DF)
 ```
 
-Q1: Which variables are numeric and which are categorical? Explain why. (20pts) 
-Make sure to convert the variables to the correct type.
-
+Identifying which variables are numeric and which are categorical
 ```{r}
 summary(DF)
 ```
@@ -42,8 +40,9 @@ str(DF)
 
 2. *Numerical:* Pregnancies, Glucose, Blood pressure, Skin thickness, Insulin, BMI, DiabetesPedigreeFunction and Age are continuous numerical variables. All these variables show quantitative data that could be measured. Pregnancies and Age are discrete numerical variables, their value always has to be positive integers, making them "discrete". All other numerical values are continous and they can have infinite number of possible values.
 
-```{r}
+
 # converting the variables outcome as a factor and other variables as numeric
+```{r}
 DF$Outcome <- as.factor(DF$Outcome)
 DF$Pregnancies <- as.numeric(DF$Pregnancies)
 DF$Glucose <- as.numeric(DF$Glucose)
@@ -56,8 +55,8 @@ DF$Age <- as.numeric(DF$Age)
 str(DF)
 ```
 
-Q2: Use appropriate statistical analysis to determine which of the variables ( on their own ) are most helpful in predicting the outcome? (20pts)
-For each variable draw an appropriate graph ( boxplot for numerical values and barplot for categorical values). Explain your answer.
+Using appropriate statistical analysis to determine which of the variables ( on their own ) are most helpful in predicting the outcome
+For each variable here we draw an appropriate graph ( boxplot for numerical values and barplot for categorical values)
 
 ```{r}
 library(ggplot2) # using the library ggplot for creating box plot
@@ -124,7 +123,7 @@ varImpPlot(datarf)
 **ANSWER:** Glucose seems to be the most important variable
 
 ```{r}
-# To identify the most important variable, we will perform a logitical regression  
+# To identify the most important variable, we will perform a logistical regression  
 LR_impVariable <- glm(Outcome ~ Pregnancies + Glucose + BloodPressure + SkinThickness + Insulin + BMI+ DiabetesPedigreeFunction + Age, data = DF, family = binomial)
 coef(LR_impVariable)
 #summary(LR_impVariable)
@@ -158,8 +157,9 @@ The new model has a AIC value less than the original one (740.56 < 741.45) repre
 
 
 
-Q3: Are there any missing values? and how do we fix this ? (20pts)
-Notice that some of the values are missing and replaced with 0. For example a blood pressure of 0 doesn’t make sense and it can have an impact on the models. So how do we identify which 0 represents the value 0 and which represents NA? Explain your answer.
+## Identifying the missing values.
+Notice that some of the values are missing and replaced with 0. For example a blood pressure of 0 doesn’t make sense and it can have an impact on the models. 
+
 ```{r}
 sapply(DF, function(x) sum(is.na(x)))
 ```
@@ -203,13 +203,8 @@ which(DF$DiabetesPedigreeFunctions == 0) # no missing values in DiabetesPedigree
 which(DF$Age == 0) # no missing values in Age
 ```
 
-Q4: Building the Model (20pts)
-· You are free to use either : leave out 30% or 10xfold Cross Validation for your testing purpose.
-· You may pick any of the following to perform your modeling ( randomForest, SVM, KNN, or neural nets)
-· Explain your approach ( for example, if you are only picking one, why did you pick it? if you are going to do
-all, how will you decide which is best?)
-
-**Answer:** Using the leave out 30% test method for all the 4 models to determine the best model
+Building the Model 
+**Answer:** Using the leave out 30% test method for all the 4 models (RandomForest, SVM, KNN, and NeuralNets)to determine the best model
 
 ```{r}
 Negative = DF[which(DF[,"Outcome"] == "0"),]
@@ -377,9 +372,6 @@ final_auc
 ```
 
 
-Q5: The Final Model (20pts)
-· Determine which model worked the best and why you think so.
-· Create a plot using colors to show which points are were predicted to have Diabetes and which were not. Use shapes to show which points were actually Diabetes and which weren’t.
  
 # Best Models
 
@@ -435,7 +427,7 @@ ggplot(model_data, aes(x=name, y=value)) + geom_bar(stat = "identity") +labs(tit
 
 **Answer:** The **SVM model** seems to be the best performing model when cost = 0.05
 
-#### Create a plot using colors to show which points are were predicted to have Diabetes and which were not. Use shapes to show which points were actually Diabetes and which weren’t.
+#### Creating a plot to show which points predicted to show Diabetes and which did not. 
 
 ```{r}
 svm_model <- svm(Outcome ~.,data = scaled_trainData, kernel="linear", cost= 0.05, probability=T)
